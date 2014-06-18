@@ -14,9 +14,12 @@ Copyright (C) 2009  Mickael Bailly
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
 
-class couchDocument {
+	Modified by Mr-Yellow for Sync Gateway REST APIs.
+*/
+namespace CouchSync;
+
+class Document {
 
 	/**
 	* @var stdClass object internal data
@@ -26,10 +29,10 @@ class couchDocument {
 	/**
 	*class constructor
 	*
-	* @param couchClient $client couchClient connection object
+	* @param Client $client Client connection object
 	*
 	*/
-	function __construct(couchClient $client) {
+	function __construct(Client $client) {
 		$this->__couch_data = new stdClass();
 		$this->__couch_data->client = $client;
 		$this->__couch_data->fields = new stdClass();
@@ -40,7 +43,7 @@ class couchDocument {
 	* load a CouchDB document from the CouchDB server
 	*
 	* @param string $id CouchDB document ID
-	* @return couchDocument $this
+	* @return Document $this
 	* @throws InvalidArgumentException
 	*/
 	public function load ( $id ) {
@@ -61,7 +64,7 @@ class couchDocument {
 	* </code>
 	*
 	* @param boolean $commit turn on or off the autocommit feature
-	* @return couchDocument $this
+	* @return Document $this
 	*/
 	public function setAutocommit($commit) {
 		$this->__couch_data->autocommit = (boolean)$commit;
@@ -83,7 +86,7 @@ class couchDocument {
 	* note that this method clones the object given in argument
 	*
 	* @param object $doc CouchDB document (should have $doc->_id  , $doc->_rev, ...)
-	* @return couchDocument $this
+	* @return Document $this
 	*/
   public function loadFromObject($doc) {
 		$this->__couch_data->fields = clone $doc;
@@ -91,15 +94,15 @@ class couchDocument {
   }
 
 	/**
-	* load a document in a couchDocument object and return it
+	* load a document in a Document object and return it
 	*
 	* @static
-	* @param couchClient $client couchClient instance
+	* @param Client $client Client instance
 	* @param string $id id of the document to load
-	* @return couchDocument couch document loaded with data of document $id
+	* @return Document couch document loaded with data of document $id
 	*/
-	public static function getInstance(couchClient $client,$id) {
-		$back = new couchDocument($client);
+	public static function getInstance(Client $client,$id) {
+		$back = new Document($client);
 		return $back->load($id);
 	}
 
@@ -179,7 +182,7 @@ class couchDocument {
 		if ( !strlen($key) )  throw new InvalidArgumentException("property name can't be empty");
 		if ( $key == '_rev' )	throw new InvalidArgumentException("Can't set _rev field");
 		if ( $key == '_id' AND $this->get('_id') )	throw new InvalidArgumentException("Can't set _id field because it's already set");
-		if ( substr($key,0,1) == '_' AND !in_array($key,couchClient::$allowed_underscored_properties) )
+		if ( substr($key,0,1) == '_' AND !in_array($key,Client::$allowed_underscored_properties) )
 			throw new InvalidArgumentException("Property $key can't begin with an underscore");
     //echo "setting $key to ".print_r($value,TRUE)."<BR>\n";
 		$this->__couch_data->fields->$key = $value;
@@ -192,7 +195,7 @@ class couchDocument {
 	*
 	*/
 	public function record() {
-		foreach ( couchClient::$underscored_properties_to_remove_on_storage as $key ) {
+		foreach ( Client::$underscored_properties_to_remove_on_storage as $key ) {
 			if ( property_exists($this->__couch_data->fields,$key) ) {
 				unset( $this->__couch_data->fields->$key );
 			}
@@ -309,10 +312,10 @@ class couchDocument {
 		if ( !isset($this->_id) ) {
 			throw new InvalidArgumentException("Can't replicate a document without id");
 		}
-		if ( !class_exists("couchReplicator") ) {
+		if ( !class_exists("Replicator") ) {
 			return false;
 		}
-		$r = new couchReplicator($this->__couch_data->client);
+		$r = new Replicator($this->__couch_data->client);
 		if ( $create_target ) {
 			$r->create_target();
 		}
@@ -337,10 +340,10 @@ class couchDocument {
 	*/
 	public function replicateFrom($id, $url, $create_target = false) {
 		echo "replicateFrom : $id, $url\n";
-		if ( !class_exists("couchReplicator") ) {
+		if ( !class_exists("Replicator") ) {
 			return false;
 		}
-		$r = new couchReplicator($this->__couch_data->client);
+		$r = new Replicator($this->__couch_data->client);
 		if ( $create_target ) {
 			$r->create_target();
 		}
@@ -402,7 +405,7 @@ class couchDocument {
 	}
 
 	/**
-	* just a proxy method to couchClient->getShow()
+	* just a proxy method to Client->getShow()
 	*
 	* @param string $id name of the design document containing the show function
 	* @param string $name name of the show function
@@ -414,7 +417,7 @@ class couchDocument {
 	}
 
 	/**
-	* just a proxy method to couchClient->updateDoc
+	* just a proxy method to Client->updateDoc
 	*
 	* @param string $id name of the design document containing the update function
 	* @param string $name name of the update function

@@ -15,18 +15,20 @@ Copyright (C) 2009  Mickael Bailly
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+	Modified by Mr-Yellow for Sync Gateway REST APIs.
 */
+namespace CouchSync;
 
 
 /**
-* CouchDB client class
+* CouchSync client class
 *
 * This class implements all required methods to use with a
-* CouchDB server
+* Couch sync gateway server
 *
 *
 */
-class couchClient extends couch {
+class Client extends Connection {
 
 	/**
 	* @var string database name
@@ -41,7 +43,7 @@ class couchClient extends couch {
 	/**
 	* @var array CouchDB query options definitions
 	*
-	* key is the couchClient method (mapped with __call)
+	* key is the Client method (mapped with __call)
 	* value is a hash containing :
 	*	- name : the query option name (couchdb side)
 	*	- filter : the type of filter to apply to the value (ex to force a cast to an integer ...)
@@ -74,7 +76,7 @@ class couchClient extends couch {
 
 
 	/**
-	* @var bool option to return couchdb view results as couchDocuments objects
+	* @var bool option to return couchdb view results as Documents objects
 	*/
 	protected $results_as_cd = false;
 
@@ -148,7 +150,7 @@ class couchClient extends couch {
 	 * @param array $parameters additionnal parameters to send with the request
 	 * @param string|object|array $data the request body. If it's an array or an object, $data is json_encode()d
 	 * @param string $content_type set the content-type of the request
-	 * @throws couchException
+	 * @throws ClientException
 	 * @return array
 	 */
 	protected function _queryAndTest ( $method, $url, $allowed_status_codes, $parameters = array(),$data = NULL, $content_type = NULL ) {
@@ -158,7 +160,7 @@ class couchClient extends couch {
 		if ( in_array($response['status_code'], $allowed_status_codes) ) {
 			return $response['body'];
 		}
-		throw couchException::factory($response, $method, $url, $parameters);
+		throw ClientException::factory($response, $method, $url, $parameters);
 	}
 
 	function __call($name, $args) {
@@ -200,7 +202,7 @@ class couchClient extends couch {
 	*
 	* @link http://wiki.apache.org/couchdb/HTTP_view_API
 	* @param array $options any json encodable thing
-	* @return couchClient $this
+	* @return Client $this
 	*/
 	public function setQueryParameters(array $options) {
 	foreach($options as $option=>$v) if (array_key_exists($option,$this->query_defs))
@@ -213,7 +215,7 @@ class couchClient extends couch {
 	* set the name of the couchDB database to work on
 	*
 	* @param string $dbname name of the database
-	* @return couchClient $this
+	* @return Client $this
 	* @throws InvalidArgumentException
 	*/
 	public function useDatabase( $dbname ) {
@@ -350,7 +352,7 @@ class couchClient extends couch {
 	* @link http://books.couchdb.org/relax/reference/change-notifications
 	* @param string $value feed type
 	* @param callable $continuous_callback in case of a continuous feed, the callback to be executed on new event reception
-	* @return couchClient $this
+	* @return Client $this
 	*/
 	public function feed($value,$continuous_callback = null) {
 		if ( $value == 'longpoll' ) {
@@ -372,7 +374,7 @@ class couchClient extends couch {
 	* @link http://books.couchdb.org/relax/reference/change-notifications
 	* @param string $value designdocname/filtername
 	* @param  array $additional_query_options additional query options
-	* @return couchClient $this
+	* @return Client $this
 	*/
 	public function filter($value, $additional_query_options = array() ) {
 		if ( strlen(trim($value)) ) {
@@ -408,7 +410,7 @@ class couchClient extends couch {
 	*
 	* @link http://wiki.apache.org/couchdb/HTTP_Document_API
 	* @param array|string $value array of revisions to fetch, or special keyword all
-	* @return couchClient $this
+	* @return Client $this
 	*/
 	public function open_revs ($value) {
 		if ( is_string($value) && $value == 'all' ) {
@@ -443,7 +445,7 @@ class couchClient extends couch {
 			return $back;
 		}
 		$this->results_as_cd = false;
-		$c = new  couchDocument($this);
+		$c = new  Document($this);
 		return $c->loadFromObject($back);
 	}
 
@@ -457,10 +459,10 @@ class couchClient extends couch {
 	public function storeDoc ( $doc ) {
 		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
 		foreach ( array_keys(get_object_vars($doc)) as $key ) {
-			if ( in_array($key,couchClient::$underscored_properties_to_remove_on_storage) ) {
+			if ( in_array($key,Client::$underscored_properties_to_remove_on_storage) ) {
 				unset($doc->$key);
 			}
-			elseif ( substr($key,0,1) == '_' AND !in_array($key,couchClient::$allowed_underscored_properties) )
+			elseif ( substr($key,0,1) == '_' AND !in_array($key,Client::$allowed_underscored_properties) )
 				throw new InvalidArgumentException("Property $key can't begin with an underscore");
 		}
 		$method = 'POST';
@@ -488,7 +490,7 @@ class couchClient extends couch {
 		*/
 		$request = array('docs'=>array());
 		foreach ( $docs as $doc ) {
-			if ( $doc instanceof couchDocument ) {
+			if ( $doc instanceof Document ) {
 				$request['docs'][] = $doc->getFields();
 			} else {
 				$request['docs'][] = $doc;
@@ -520,7 +522,7 @@ class couchClient extends couch {
 		$request = array('docs'=>array());
 		foreach ( $docs as $doc ) {
 			$destDoc = null;
-			if ( $doc instanceof couchDocument )	$destDoc = $doc->getFields();
+			if ( $doc instanceof Document )	$destDoc = $doc->getFields();
 			else 									$destDoc = $doc;
 
 			if ( is_array($destDoc) )	$destDoc['_deleted'] = true;
@@ -707,7 +709,7 @@ class couchClient extends couch {
 	}
 
 	/**
-	* returns couchDB results as couchDocuments objects
+	* returns couchDB results as Documents objects
 	*
 	* implies include_docs(true)
 	*
@@ -715,8 +717,8 @@ class couchClient extends couch {
     *
 	* when view result is parsed, view documents are translated to objects and sent back
 	*
-	* @view  results_as_couchDocuments()
-	* @return couchClient $this
+	* @view  results_as_Documents()
+	* @return Client $this
 	*
 	*/
 	public function asCouchDocuments() {
@@ -730,7 +732,7 @@ class couchClient extends couch {
     *
     * cannot be used in conjunction with asCouchDocuments()
     *
-    * @return couchClient $this
+    * @return Client $this
     */
     public function asArray() {
         $this->results_as_array = true;
@@ -783,30 +785,30 @@ class couchClient extends couch {
 		);
 	}
 	/**
-	* returns couchDB view results as couchDocuments objects
+	* returns couchDB view results as Documents objects
 	*
 	* - for string view keys, the object is found on "view key" index
 	*			ex : view returns
 	*			<code>[ "client" : null , "client2" : null ]</code>
 	* 		is translated to :
-	*			array ( 'client' => array(couchDocument) , 'client2' => array(couchDocument) )
+	*			array ( 'client' => array(Document) , 'client2' => array(Document) )
 	*
 	* - for array view keys, the object key in the result array is the last key of the view
 	*			ex : view returns
 	*			<code>[ [ "#44556643", "client" ] : null , [ "#65745767566","client2" : null ]</code>
 	* 		is translated to :
-	*			array ( 'client' => array(couchDocument) , 'client2' => array(couchDocument) )
+	*			array ( 'client' => array(Document) , 'client2' => array(Document) )
 	*
 	*	@param stdClass couchDb view resultset
-	* @return array array of couchDocument objects
+	* @return array array of Document objects
 	*/
 	public function resultsToCouchDocuments ( $results ) {
 		if ( !$results->rows or !is_array($results->rows) )	return FALSE;
 		$back = array();
 		foreach ( $results->rows as $row ) {	// should have $row->key & $row->doc
 			if ( !$row->key or !$row->doc ) 	return false;
-			// create couchDocument
-			$cd = new couchDocument($this);
+			// create Document
+			$cd = new Document($this);
 			$cd->loadFromObject($row->doc);
 
 			// set key name
@@ -1008,11 +1010,11 @@ class couchClient extends couch {
 * and adds a method getBody() to fetch the body sent by the server (if any)
 *
 */
-class couchException extends Exception {
+class ClientException extends Exception {
 	// CouchDB response codes we handle specialized exceptions
-	protected static $code_subtypes = array(404=>'couchNotFoundException', 403=>'couchForbiddenException', 401=>'couchUnauthorizedException', 417=>'couchExpectationException');
+	protected static $code_subtypes = array(404=>'CouchSync\NotFoundException', 403=>'CouchSync\ForbiddenException', 401=>'CouchSync\UnauthorizedException', 417=>'CouchSync\ExpectationException');
 	// more precise response problem
-    protected static $status_subtypes = array('Conflict'=>'couchConflictException');
+    protected static $status_subtypes = array('Conflict'=>'ConflictException');
     // couchDB response once parsed
 	protected $couch_response = array();
 
@@ -1037,7 +1039,7 @@ class couchException extends Exception {
 
 	public static function factory($response, $method, $url, $parameters) {
 		if (is_string($response)) $response = couch::parseRawResponse($response);
-		if (!$response) return new couchNoResponseException();
+		if (!$response) return new NoResponseException();
 		if (isset($response['status_code']) and isset(self::$code_subtypes[$response['status_code']]))
 			return new self::$code_subtypes[$response['status_code']]($response, $method, $url, $parameters);
 		elseif (isset($response['status_message']) and isset(self::$status_subtypes[$response['status_message']]))
@@ -1060,13 +1062,13 @@ class couchException extends Exception {
 	}
 }
 
-class couchNoResponseException extends couchException {
+class NoResponseException extends ClientException {
 	function __construct() {
 		parent::__construct(array('status_message'=>'No response from server - '));
 	}
 }
-class couchNotFoundException extends couchException {}
-class couchForbiddenException extends couchException {}
-class couchUnauthorizedException extends couchException {}
-class couchExpectationException extends couchException {}
-class couchConflictException extends couchException {}
+class NotFoundException extends ClientException {}
+class ForbiddenException extends ClientException {}
+class UnauthorizedException extends ClientException {}
+class ExpectationException extends ClientException {}
+class ConflictException extends ClientException {}

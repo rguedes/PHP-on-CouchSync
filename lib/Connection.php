@@ -14,15 +14,18 @@ Copyright (C) 2009  Mickael Bailly
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+	Modified by Mr-Yellow for Sync Gateway REST APIs.
 */
+namespace CouchSync;
 
 /**
-* couch class
+* Connection class
 *
-* basics to implement JSON / REST / HTTP CouchDB protocol
+* basics to implement JSON / REST / HTTP CouchDB sync gateway protocol
 *
 */
-class couch {
+class Connection {
 	/**
 	* @var string database source name
 	*/
@@ -207,7 +210,7 @@ class couch {
 	*
 	* - the JSON object decoded as a PHP object
 	*
-	* - a couchClient instance to use to make queries inside the callback
+	* - a Client instance to use to make queries inside the callback
 	*
 	* If the callable returns the boolean FALSE , continuous reading stops.
 	*
