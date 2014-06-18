@@ -33,9 +33,9 @@ class Document {
 	*
 	*/
 	function __construct(Client $client) {
-		$this->__couch_data = new stdClass();
+		$this->__couch_data = new \stdClass();
 		$this->__couch_data->client = $client;
-		$this->__couch_data->fields = new stdClass();
+		$this->__couch_data->fields = new \stdClass();
 		$this->__couch_data->autocommit = true;
 	}
 
@@ -47,7 +47,7 @@ class Document {
 	* @throws InvalidArgumentException
 	*/
 	public function load ( $id ) {
-		if ( !strlen($id) ) throw new InvalidArgumentException("No id given");
+		if ( !strlen($id) ) throw new \InvalidArgumentException("No id given");
 		$this->__couch_data->fields = $this->__couch_data->client->getDoc($id);
 		return $this;
 	}
@@ -89,7 +89,8 @@ class Document {
 	* @return Document $this
 	*/
   public function loadFromObject($doc) {
-		$this->__couch_data->fields = clone $doc;
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
+  		$this->__couch_data->fields = clone($doc);
 		return $this;
   }
 
@@ -154,7 +155,7 @@ class Document {
 	public function get ( $key ) {
     //echo "get for $key\n";
 		$key = (string)$key;
-		if (!strlen($key) )	throw new InvalidArgumentException("No key given");
+		if (!strlen($key) )	throw new \InvalidArgumentException("No key given");
 		return property_exists( $this->__couch_data->fields,$key ) ? $this->__couch_data->fields->$key : NULL;
 	}
 
@@ -179,11 +180,11 @@ class Document {
 	*/
 	protected function setOne ($key, $value ) {
 		$key = (string)$key;
-		if ( !strlen($key) )  throw new InvalidArgumentException("property name can't be empty");
-		if ( $key == '_rev' )	throw new InvalidArgumentException("Can't set _rev field");
-		if ( $key == '_id' AND $this->get('_id') )	throw new InvalidArgumentException("Can't set _id field because it's already set");
+		if ( !strlen($key) )  throw new \InvalidArgumentException("property name can't be empty");
+		if ( $key == '_rev' )	throw new \InvalidArgumentException("Can't set _rev field");
+		if ( $key == '_id' AND $this->get('_id') )	throw new \InvalidArgumentException("Can't set _id field because it's already set");
 		if ( substr($key,0,1) == '_' AND !in_array($key,Client::$allowed_underscored_properties) )
-			throw new InvalidArgumentException("Property $key can't begin with an underscore");
+			throw new \InvalidArgumentException("Property $key can't begin with an underscore");
     //echo "setting $key to ".print_r($value,TRUE)."<BR>\n";
 		$this->__couch_data->fields->$key = $value;
 		return TRUE;
@@ -229,7 +230,7 @@ class Document {
 	public function set ( $key , $value = NULL ) {
 
 		if ( func_num_args() == 1 ) {
-			if ( !is_array($key) AND !is_object($key) )	throw new InvalidArgumentException("When second argument is null, first argument should ba an array or an object");
+			if ( !is_array($key) AND !is_object($key) )	throw new \InvalidArgumentException("When second argument is null, first argument should ba an array or an object");
 			foreach ( $key as $one_key => $one_value ) {
 				$this->setOne($one_key,$one_value);
 			}
@@ -279,7 +280,7 @@ class Document {
 	*/
 	public function remove($key) {
 		$key = (string)$key;
-		if ( !strlen($key) )	throw new InvalidArgumentException("Can't remove a key without name");
+		if ( !strlen($key) )	throw new \InvalidArgumentException("Can't remove a key without name");
 		if ( $key == '_id' OR $key == '_rev' )		return FALSE;
 		if ( isset($this->$key) ) {
 			unset($this->__couch_data->fields->$key);
@@ -310,7 +311,7 @@ class Document {
 	public function replicateTo($url, $create_target = false) {
 		echo "replicateTo : ".$this->_id.", $url\n";
 		if ( !isset($this->_id) ) {
-			throw new InvalidArgumentException("Can't replicate a document without id");
+			throw new \InvalidArgumentException("Can't replicate a document without id");
 		}
 		if ( !class_exists("Replicator") ) {
 			return false;

@@ -155,6 +155,16 @@ class Client extends Connection {
 	 */
 	protected function _queryAndTest ( $method, $url, $allowed_status_codes, $parameters = array(),$data = NULL, $content_type = NULL ) {
 		$raw = $this->query($method,$url,$parameters,$data,$content_type);
+		/*
+		var_dump(array(
+			'method'=>$method,
+			'url'=>$url,
+			'parameters'=>$parameters,
+			'data'=>$data,
+			'content_type'=>$content_type,
+			'raw'=>$raw
+		));
+		*/
 		$response = $this->parseRawResponse($raw, $this->results_as_array);
 		$this->results_as_array = false;
 		if ( in_array($response['status_code'], $allowed_status_codes) ) {
@@ -165,7 +175,7 @@ class Client extends Connection {
 
 	function __call($name, $args) {
 		if ( !array_key_exists($name,$this->query_defs) ) {
-			throw new Exception("Method $name does not exist");
+			throw new \Exception("Method $name does not exist");
 		}
 		if ( $this->query_defs[$name]['filter'] == 'int' ) {
 			$this->query_parameters[ $this->query_defs[$name]['name'] ] = (int)reset($args);
@@ -219,8 +229,8 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function useDatabase( $dbname ) {
-		if ( !strlen($dbname) )	throw new InvalidArgumentException("Database name can't be empty");
-		if ( !$this->isValidDatabaseName($dbname) )	throw new InvalidArgumentException('Database name contains invalid characters. Only lowercase characters (a-z), digits (0-9), and any of the characters _, $, (, ), +, -, and / are allowed.');
+		if ( !strlen($dbname) )	throw new \InvalidArgumentException("Database name can't be empty");
+		if ( !$this->isValidDatabaseName($dbname) )	throw new \InvalidArgumentException('Database name contains invalid characters. Only lowercase characters (a-z), digits (0-9), and any of the characters _, $, (, ), +, -, and / are allowed.');
 		$this->dbname = $dbname;
 		return $this;
 	}
@@ -233,7 +243,7 @@ class Client extends Connection {
 	* @return boolean true if the database name is correct
 	*/
 	public static function isValidDatabaseName ( $dbname ) {
-		if ( $dbname == "_users" )	return true;
+		if ( $dbname == "_user" )	return true;
 		if (  preg_match ( "@^[a-z][a-z0-9_\$\(\)\+\-/]*$@",$dbname) ) return true;
 		return false;
 	}
@@ -425,15 +435,18 @@ class Client extends Connection {
 	* fetch a CouchDB document
 	*
 	* @param string $id document id
+	* @param string $path Admin API path
 	* @return object CouchDB document
 	* @throws InvalidArgumentException
 	*/
-	public function getDoc ($id) {
-		if ( !strlen($id) )
-			throw new InvalidArgumentException ("Document ID is empty");
+	public function getDoc ($id , $path = '') {
+		if ( !strlen($id) && empty($path) )
+			throw new \InvalidArgumentException ("Document ID is empty");
 
 		if ( preg_match('/^_design/',$id) )
 			$url = '/'.urlencode($this->dbname).'/_design/'.urlencode(str_replace('_design/','',$id));
+		else if ( !empty($path) )
+			$url = '/'.urlencode($this->dbname).'/'.$path.'/'.urlencode($id);
 		else
 			$url = '/'.urlencode($this->dbname).'/'.urlencode($id);
 
@@ -441,11 +454,20 @@ class Client extends Connection {
 		$this->query_parameters = array();
 
 		$back = $this->_queryAndTest ('GET', $url, array(200),$doc_query);
+		
+		//var_dump(array('results_as_cd'=>$this->results_as_cd,'back'=>$back));
+		if ( !is_object($back) && !empty($path) ) $back = json_decode($back);
 		if ( !$this->results_as_cd ) {
 			return $back;
 		}
 		$this->results_as_cd = false;
-		$c = new  Document($this);
+		$c = new Document($this);
+		/*
+		var_dump(array(
+			'c'=>$c,
+			'back'=>$back
+		));
+		*/
 		return $c->loadFromObject($back);
 	}
 
@@ -456,17 +478,20 @@ class Client extends Connection {
 	* @return object CouchDB document storage response
 	* @throws InvalidArgumentException
 	*/
-	public function storeDoc ( $doc ) {
-		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
+	public function storeDoc ( $doc, $path = '' ) {
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
 		foreach ( array_keys(get_object_vars($doc)) as $key ) {
 			if ( in_array($key,Client::$underscored_properties_to_remove_on_storage) ) {
 				unset($doc->$key);
 			}
 			elseif ( substr($key,0,1) == '_' AND !in_array($key,Client::$allowed_underscored_properties) )
-				throw new InvalidArgumentException("Property $key can't begin with an underscore");
+				throw new \InvalidArgumentException("Property $key can't begin with an underscore");
 		}
 		$method = 'POST';
 		$url  = '/'.urlencode($this->dbname);
+		if ( !empty($path) ) {
+			$url.='/'.$path;
+		}
 		if ( !empty($doc->_id) )    {
 			$method = 'PUT';
 			$url.='/'.urlencode($doc->_id);
@@ -484,7 +509,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function storeDocs ( $docs, $all_or_nothing = false ) {
-		if ( !is_array($docs) )	throw new InvalidArgumentException ("docs parameter should be an array");
+		if ( !is_array($docs) )	throw new \InvalidArgumentException ("docs parameter should be an array");
 		/*
 			create the query content
 		*/
@@ -515,7 +540,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function deleteDocs ( $docs, $all_or_nothing = false ) {
-		if ( !is_array($docs) )	throw new InvalidArgumentException ("docs parameter should be an array");
+		if ( !is_array($docs) )	throw new \InvalidArgumentException ("docs parameter should be an array");
 		/*
 			create the query content
 		*/
@@ -551,7 +576,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function updateDoc ( $ddoc_id, $handler_name, $params, $doc_id = null ) {
-		if ( !is_array($params) && !is_object($params) ) throw new InvalidArgumentException ("params parameter should be an array or an object");
+		if ( !is_array($params) && !is_object($params) ) throw new \InvalidArgumentException ("params parameter should be an array or an object");
 		if ( is_object($params) )	$params = (array)$params;
 
 		$options = array();
@@ -616,9 +641,9 @@ class Client extends Connection {
 	*/
 	public function copyDoc($id,$new_id) {
 		if ( !strlen($id) )
-			throw new InvalidArgumentException ("Document ID is empty");
+			throw new \InvalidArgumentException ("Document ID is empty");
 		if ( !strlen($new_id) )
-			throw new InvalidArgumentException ("New document ID is empty");
+			throw new \InvalidArgumentException ("New document ID is empty");
 
 		$method = 'COPY';
 		$url  = '/'.urlencode($this->dbname);
@@ -639,8 +664,8 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function storeAsAttachment ($doc,$data,$filename,$content_type = 'application/octet-stream') {
-		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new InvalidArgumentException ("Document should have an ID");
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
+		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
 		$url  = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'/'.urlencode($filename);
 		if ( $doc->_rev ) $url.='?rev='.$doc->_rev;
 		$raw = $this->storeAsFile($url,$data,$content_type);
@@ -662,9 +687,9 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function storeAttachment ($doc,$file,$content_type = 'application/octet-stream',$filename = null) {
-		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new InvalidArgumentException ("Document should have an ID");
-		if ( !is_file($file) )  throw new InvalidArgumentException ("File $file does not exist");
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
+		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
+		if ( !is_file($file) )  throw new \InvalidArgumentException ("File $file does not exist");
 		$url  = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'/';
 		$url .= empty($filename) ? urlencode(basename($file)) : urlencode($filename) ;
 		if ( $doc->_rev ) $url.='?rev='.$doc->_rev;
@@ -682,9 +707,9 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function deleteAttachment ($doc,$attachment_name ) {
-		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new InvalidArgumentException ("Document should have an ID");
-		if ( !strlen($attachment_name) )  throw new InvalidArgumentException ("Attachment name not set");
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
+		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
+		if ( !strlen($attachment_name) )  throw new \InvalidArgumentException ("Attachment name not set");
 		$url  = '/'.urlencode($this->dbname).
 				'/'.urlencode($doc->_id).
 				'/'.urlencode($attachment_name);
@@ -699,12 +724,18 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	* @throws Exception
 	*/
-	public function deleteDoc ( $doc ) {
-		if ( !is_object($doc) )	throw new InvalidArgumentException ("Document should be an object");
-		if ( empty($doc->_id)  OR empty($doc->_rev) )    {
-			throw new Exception("Document should contain _id and _rev");
-		}
-		$url = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'?rev='.urlencode($doc->_rev);
+	public function deleteDoc ( $doc, $path = '' ) {
+		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
+		if ( (empty($doc->_id) OR empty($doc->_rev)) && empty($doc->name) ) throw new \Exception("Document should contain either _id and _rev or name");
+		
+		if ( !empty($path) )
+			if ( (empty($doc->_id) OR empty($doc->_rev)) && !empty($doc->name) )
+				$url = '/'.urlencode($this->dbname).'/'.$path.'/'.urlencode($doc->name);
+			else
+				$url = '/'.urlencode($this->dbname).'/'.$path.'/'.urlencode($doc->_id).'?rev='.urlencode($doc->_rev);
+		else
+			$url = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'?rev='.urlencode($doc->_rev);
+
 		return $this->_queryAndTest ('DELETE', $url, array(200,202));
 	}
 
@@ -721,7 +752,7 @@ class Client extends Connection {
 	* @return Client $this
 	*
 	*/
-	public function asCouchDocuments() {
+	public function asDocuments() {
 		$this->results_as_cd = true;
         $this->results_as_array = false;
 		return $this;
@@ -730,7 +761,7 @@ class Client extends Connection {
 	/**
     * returns couchDB results as array
     *
-    * cannot be used in conjunction with asCouchDocuments()
+    * cannot be used in conjunction with asDocuments()
     *
     * @return Client $this
     */
@@ -769,7 +800,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function getView ( $id, $name ) {
-		if ( !$id OR !$name )    throw new InvalidArgumentException("You should specify view id and name");
+		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify view id and name");
 		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_view/'.urlencode($name);
 		if ( $this->results_as_cd )		$this->include_docs(true);
 		$results_as_cd = $this->results_as_cd;
@@ -780,7 +811,7 @@ class Client extends Connection {
 		if ( ! $results_as_cd )
 			return $this->_queryAndTest ($method, $url, array(200),$view_query,$data);
 
-		return $this->resultsToCouchDocuments (
+		return $this->resultsToDocuments (
 			$this->_queryAndTest ($method, $url, array(200),$view_query,$data)
 		);
 	}
@@ -802,7 +833,7 @@ class Client extends Connection {
 	*	@param stdClass couchDb view resultset
 	* @return array array of Document objects
 	*/
-	public function resultsToCouchDocuments ( $results ) {
+	public function resultsToDocuments ( $results ) {
 		if ( !$results->rows or !is_array($results->rows) )	return FALSE;
 		$back = array();
 		foreach ( $results->rows as $row ) {	// should have $row->key & $row->doc
@@ -843,8 +874,8 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function getList ( $id, $name, $view_name, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new InvalidArgumentException("You should specify list id and name");
-		if ( !$view_name )    throw new InvalidArgumentException("You should specify view name");
+		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
+		if ( !$view_name )    throw new \InvalidArgumentException("You should specify view name");
 		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_list/'.urlencode($name).'/'.urlencode($view_name);
 		$this->results_as_cd = false;
 		list($method, $view_query, $data) = $this->_prepare_view_query();
@@ -877,8 +908,8 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function getForeignList ( $id, $name, $view_id, $view_name, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new InvalidArgumentException("You should specify list id and name");
-		if ( !$view_id OR !$view_name )    throw new InvalidArgumentException("You should specify view id and view name");
+		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
+		if ( !$view_id OR !$view_name )    throw new \InvalidArgumentException("You should specify view id and view name");
 		$url = '/'.urlencode($this->dbname).
 				'/_design/'.urlencode($id).'/_list/'.urlencode($name).
 				'/'.urlencode($view_id).'/'.urlencode($view_name);
@@ -903,7 +934,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function getShow ( $id, $name, $doc_id = null, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new InvalidArgumentException("You should specify list id and name");
+		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
 		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_show/'.urlencode($name);
 		if ( $doc_id )	$url.='/'.urlencode($doc_id);
 		return $this->_queryAndTest ('GET', $url, array(200), $additionnal_parameters);
@@ -918,7 +949,7 @@ class Client extends Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function getViewInfos ( $id ) {
-		if ( !$id )    throw new InvalidArgumentException("You should specify view id");
+		if ( !$id )    throw new \InvalidArgumentException("You should specify view id");
 		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_info';
 		return $this->_queryAndTest ("GET", $url, array(200));
 	}
@@ -978,7 +1009,7 @@ class Client extends Connection {
 	*/
 	public function getUuids($count = 1) {
 		$count=(int)$count;
-		if ( $count < 1 ) throw new InvalidArgumentException("Uuid count should be greater than 0");
+		if ( $count < 1 ) throw new \InvalidArgumentException("Uuid count should be greater than 0");
 
 		$url = '/_uuids';
 
@@ -1010,11 +1041,11 @@ class Client extends Connection {
 * and adds a method getBody() to fetch the body sent by the server (if any)
 *
 */
-class ClientException extends Exception {
+class ClientException extends \Exception {
 	// CouchDB response codes we handle specialized exceptions
 	protected static $code_subtypes = array(404=>'CouchSync\NotFoundException', 403=>'CouchSync\ForbiddenException', 401=>'CouchSync\UnauthorizedException', 417=>'CouchSync\ExpectationException');
 	// more precise response problem
-    protected static $status_subtypes = array('Conflict'=>'ConflictException');
+    protected static $status_subtypes = array('Conflict'=>'CouchSync\ConflictException');
     // couchDB response once parsed
 	protected $couch_response = array();
 
@@ -1027,7 +1058,7 @@ class ClientException extends Exception {
 	* @param mixed $parameters the query parameters
 	*/
 	function __construct($response, $method = null, $url = null, $parameters = null) {
-		$this->couch_response = is_string($response) ? couch::parseRawResponse($response) : $response;
+		$this->couch_response = is_string($response) ? Client::parseRawResponse($response) : $response;
 		if (is_object($this->couch_response['body']) and isset($this->couch_response['body']->reason))
 			$message = $this->couch_response['status_message'] . ' - ' . $this->couch_response['body']->reason;
 		else
@@ -1038,7 +1069,7 @@ class ClientException extends Exception {
 
 
 	public static function factory($response, $method, $url, $parameters) {
-		if (is_string($response)) $response = couch::parseRawResponse($response);
+		if (is_string($response)) $response = Client::parseRawResponse($response);
 		if (!$response) return new NoResponseException();
 		if (isset($response['status_code']) and isset(self::$code_subtypes[$response['status_code']]))
 			return new self::$code_subtypes[$response['status_code']]($response, $method, $url, $parameters);

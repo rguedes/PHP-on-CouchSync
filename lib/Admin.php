@@ -39,7 +39,7 @@ class Admin {
 	/**
 	* @var the name of the CouchDB server "users" database
 	*/
-	private $usersdb = "_users";
+	private $usersdb = "_user";
 
 	/**
 	*constructor
@@ -100,16 +100,16 @@ class Admin {
 	* @param string $password administrator password
 	* @param array $roles add additionnal roles to the new admin
 	* @return stdClass CouchDB server response
-	* @throws InvalidArgumentException|Exception|couchException
+	* @throws InvalidArgumentException|Exception|ClientException
 	*/
 	public function createAdmin ( $login, $password, $roles = array() ) {
 		$login = urlencode($login);
 		$data = (string)$password;
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		if ( strlen($data) < 1 ) {
-			throw new InvalidArgumentException("Password can't be empty");
+			throw new \InvalidArgumentException("Password can't be empty");
 		}
 		$url = '/_config/admins/'.urlencode($login);
 		try {
@@ -124,7 +124,7 @@ class Admin {
 		}
 		$resp = couch::parseRawResponse($raw);
 		if ( $resp['status_code'] != 200 ) {
-			throw new couchException($raw);
+			throw new ClientException($raw);
 		}
 
 		$dsn = $this->client->dsn_part();
@@ -145,12 +145,12 @@ class Admin {
 	*
 	* @param string $login administrator login
 	* @return stdClass CouchDB server response
-	* @throws InvalidArgumentException|couchException
+	* @throws InvalidArgumentException|ClientException
 	*/
 	public function deleteAdmin ( $login ) {
 		$login = urlencode($login);
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 
 		try {
@@ -167,7 +167,7 @@ class Admin {
 		);
 		$resp = couch::parseRawResponse($raw);
 		if ( $resp['status_code'] != 200 ) {
-			throw new couchException($raw);
+			throw new ClientException($raw);
 		}
 		return $resp["body"];
 	}
@@ -177,6 +177,7 @@ class Admin {
 	*
 	* @param string $login user login
 	* @param string $password user password
+	* @param string $email user email address
 	* @param array $roles add additionnal roles to the new user
 	* @return stdClass CouchDB user creation response (the same as a document storage response)
 	* @throws InvalidArgumentException
@@ -184,20 +185,23 @@ class Admin {
 	public function createUser ($login, $password, $roles = array() ) {
 		$password = (string)$password;
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		if ( strlen($password) < 1 ) {
-			throw new InvalidArgumentException("Password can't be empty");
+			throw new \InvalidArgumentException("Password can't be empty");
 		}
-		$user = new stdClass();
-		$user->salt = sha1( microtime().mt_rand(1000000,9999999),false);
-		$user->password_sha = sha1( $password . $user->salt, false);
-		$user->name=$login;
-		$user->type = "user";
-		$user->roles = $roles;
-		$user->_id = "org.couchdb.user:".$login;
-		$client = new Client( $this->client->dsn() , $this->usersdb, $this->client->options());
-		return $client->storeDoc($user);
+		$user = new \stdClass();
+		$user->admin_channels = null;
+		$user->admin_roles = $roles;
+		//$user->all_channels = null;  // This is a derived property and changes to it are ignored.
+		//$user->disabled = null; // This property is usually not included. if the value is set to true, access for the account is disabled.
+		$user->email = $login;
+		$user->name = $login;
+		$user->password = $password;
+		//$user->roles = null; // This is a derived property and changes to it are ignored.
+
+		$user->_id = $login;
+		return $this->client->storeDoc($user, '_user');
 	}
 
 
@@ -211,11 +215,11 @@ class Admin {
 	*/
 	public function deleteUser ( $login ) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
-		$client = new Client( $this->client->dsn() , $this->usersdb);
-		$doc = $client->getDoc("org.couchdb.user:".$login);
-		return $client->deleteDoc($doc);
+		$this->client->asDocuments();
+		$doc = $this->client->getDoc($login, '_user');
+		return $this->client->deleteDoc($doc, '_user');
 	}
 
 	/**
@@ -227,10 +231,9 @@ class Admin {
 	*/
 	public function getUser ($login) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
-		$client = new Client( $this->client->dsn() , $this->usersdb, $this->client->options());
-		return $client->getDoc("org.couchdb.user:".$login);
+		return $this->client->getDoc($login, '_user');
 	}
 
 	/**
@@ -240,11 +243,18 @@ class Admin {
 	* @return array users array : each row is a stdObject with "id", "rev" and optionally "doc" properties
 	*/
 	public function getAllUsers($include_docs = false) {
-		$client = new Client( $this->client->dsn() , $this->usersdb, $this->client->options());
+		$doc = $this->client->getDoc('', '_user');
 		if ( $include_docs ) {
-			$client->include_docs(true);
+			$users = array();
+			foreach ($doc as $login) {
+				$this->client->asDocuments();
+				$users[$login] = $this->client->getDoc($login, '_user');
+			}
+			//var_dump(array('users'=>$users));
+			return $users;
 		}
-		return $client->startkey("org.couchdb.user:")->endkey("org.couchdb.user?")->getAllDocs()->rows;
+		return $doc;
+		//return $client->startkey("org.couchdb.user:")->endkey("org.couchdb.user?")->getAllDocs()->rows;
 	}
 
 	/**
@@ -259,7 +269,7 @@ class Admin {
 		if ( is_string($user) ) {
 			$user = $this->getUser($user);
 		} elseif ( !property_exists($user,"_id") || !property_exists($user,"roles") ) {
-			throw new InvalidArgumentException("user parameter should be the login or a user document");
+			throw new \InvalidArgumentException("user parameter should be the login or a user document");
 		}
 		if ( !in_array($role,$user->roles) ) {
 			$user->roles[] = $role;
@@ -282,7 +292,7 @@ class Admin {
 		if ( is_string($user) ) {
 			$user = $this->getUser($user);
 		} elseif ( !property_exists($user,"_id") || !property_exists($user,"roles") ) {
-			throw new InvalidArgumentException("user parameter should be the login or a user document");
+			throw new \InvalidArgumentException("user parameter should be the login or a user document");
 		}
 		if ( in_array($role,$user->roles) ) {
 			$user->roles = $this->rmFromArray($role, $user->roles);
@@ -293,23 +303,24 @@ class Admin {
 		return true;
 	}
 
-
+/*
 	/**
 	* returns the security object of a database
 	*
 	* @link http://wiki.apache.org/couchdb/Security_Features_Overview
 	* @return stdClass security object of the database
-	* @throws couchException
+	* @throws ClientException
 	*/
+	/*
 	public function getSecurity ( ) {
 		$dbname = $this->client->getDatabaseName();
 		$raw = $this->client->query(
 			"GET",
 			"/".$dbname."/_security"
 		);
-		$resp = couch::parseRawResponse($raw);
+		$resp = Connection::parseRawResponse($raw);
 		if ( $resp['status_code'] != 200 ) {
-			throw new couchException($raw);
+			throw new ClientException($raw);
 		}
 		if ( ! property_exists($resp['body'], "admins") ) {
 			$resp["body"]->admins = new stdClass();
@@ -321,6 +332,7 @@ class Admin {
 		}
 		return $resp['body'];
 	}
+	*/
 
 	/**
 	* set the security object of a database
@@ -328,11 +340,11 @@ class Admin {
 	* @link http://wiki.apache.org/couchdb/Security_Features_Overview
 	* @param stdClass $security the security object to apply to the database
 	* @return stdClass CouchDB server response ( { "ok": true } )
-	* @throws InvalidArgumentException|couchException
+	* @throws InvalidArgumentException|ClientException
 	*/
 	public function setSecurity ( $security ) {
 		if ( !is_object($security) ) {
-			throw new InvalidArgumentException("Security should be an object");
+			throw new \InvalidArgumentException("Security should be an object");
 		}
 		$dbname = $this->client->getDatabaseName();
 		$raw = $this->client->query(
@@ -345,7 +357,7 @@ class Admin {
 		if ( $resp['status_code'] == 200 ) {
 			return $resp['body'];
 		}
-		throw new couchException($raw);
+		throw new ClientException($raw);
 	}
 
 	/**
@@ -357,7 +369,7 @@ class Admin {
 	*/
 	public function addDatabaseReaderUser($login) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( in_array($login, $sec->readers->names) ) {
@@ -380,7 +392,7 @@ class Admin {
 	*/
 	public function addDatabaseAdminUser($login) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( in_array($login, $sec->admins->names) ) {
@@ -423,7 +435,7 @@ class Admin {
 	*/
 	public function removeDatabaseReaderUser($login) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( !in_array($login, $sec->readers->names) ) {
@@ -446,7 +458,7 @@ class Admin {
 	*/
 	public function removeDatabaseAdminUser($login) {
 		if ( strlen($login) < 1 ) {
-			throw new InvalidArgumentException("Login can't be empty");
+			throw new \InvalidArgumentException("Login can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( !in_array($login, $sec->admins->names) ) {
@@ -471,7 +483,7 @@ class Admin {
 	*/
 	public function addDatabaseReaderRole($role) {
 		if ( strlen($role) < 1 ) {
-			throw new InvalidArgumentException("Role can't be empty");
+			throw new \InvalidArgumentException("Role can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( in_array($role, $sec->readers->roles) ) {
@@ -494,7 +506,7 @@ class Admin {
 	*/
 	public function addDatabaseAdminRole($role) {
 		if ( strlen($role) < 1 ) {
-			throw new InvalidArgumentException("Role can't be empty");
+			throw new \InvalidArgumentException("Role can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( in_array($role, $sec->admins->roles) ) {
@@ -537,7 +549,7 @@ class Admin {
 	*/
 	public function removeDatabaseReaderRole($role) {
 		if ( strlen($role) < 1 ) {
-			throw new InvalidArgumentException("Role can't be empty");
+			throw new \InvalidArgumentException("Role can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( !in_array($role, $sec->readers->roles) ) {
@@ -556,11 +568,11 @@ class Admin {
 	*
 	* @param string $role role name
 	* @return boolean true if the role has successfuly been removed
-	* @throws InvalidArgumentException|couchException
+	* @throws InvalidArgumentException|ClientException
 	*/
 	public function removeDatabaseAdminRole($role) {
 		if ( strlen($role) < 1 ) {
-			throw new InvalidArgumentException("Role can't be empty");
+			throw new \InvalidArgumentException("Role can't be empty");
 		}
 		$sec = $this->getSecurity();
 		if ( !in_array($role, $sec->admins->roles) ) {

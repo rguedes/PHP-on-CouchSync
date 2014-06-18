@@ -140,7 +140,7 @@ class Connection {
 	* @throws InvalidArgumentException
 	*/
 	public static function parseRawResponse($raw_data, $json_as_array = FALSE) {
-		if ( !strlen($raw_data) ) throw new InvalidArgumentException("no data to parse");
+		if ( !strlen($raw_data) ) throw new \InvalidArgumentException("no data to parse");
 		while ( !substr_compare($raw_data, "HTTP/1.1 100 Continue\r\n\r\n", 0, 25) ) {
 			$raw_data = substr($raw_data, 25);
 		}
@@ -222,13 +222,13 @@ class Connection {
 	*
 	* @return string|false server response on success, false on error
 	*
-	* @throws Exception|InvalidArgumentException|couchException|couchNoResponseException
+	* @throws Exception|InvalidArgumentException|ClientException|NoResponseException
 	*/
 	public function continuousQuery($callable,$method,$url,$parameters = array(),$data = null) {
 		if ( !in_array($method, $this->HTTP_METHODS )    )
 			throw new Exception("Bad HTTP method: $method");
 		if ( !is_callable($callable) )
-			throw new InvalidArgumentException("callable argument have to success to is_callable PHP function");
+			throw new \InvalidArgumentException("callable argument have to success to is_callable PHP function");
 		if ( is_array($parameters) AND count($parameters) )
 			$url = $url.'?'.http_build_query($parameters);
         //Send the request to the socket
@@ -250,12 +250,12 @@ class Connection {
 		$split=explode(" ",trim(reset($headers)));
 		$code = $split[1];
 		unset($split);
-        //If an invalid response is sent, read the rest of the response and throw an appropriate couchException
+        //If an invalid response is sent, read the rest of the response and throw an appropriate ClientException
         if (!in_array($code,array(200,201))) {
             stream_set_blocking($this->socket,false);
             $response .= stream_get_contents($this->socket);
             fclose($this->socket);
-            throw couchException::factory($response, $method, $url, $parameters);
+            throw ClientException::factory($response, $method, $url, $parameters);
         }
 
         //For as long as the socket is open, read lines and pass them to the callback
@@ -384,9 +384,9 @@ class Connection {
 	*/
 	protected function _socket_storeFile($url,$file,$content_type) {
 
-		if ( !strlen($url) )	throw new InvalidArgumentException("Attachment URL can't be empty");
-		if ( !strlen($file) OR !is_file($file) OR !is_readable($file) )	throw new InvalidArgumentException("Attachment file does not exist or is not readable");
-		if ( !strlen($content_type) ) throw new InvalidArgumentException("Attachment Content Type can't be empty");
+		if ( !strlen($url) )	throw new \InvalidArgumentException("Attachment URL can't be empty");
+		if ( !strlen($file) OR !is_file($file) OR !is_readable($file) )	throw new \InvalidArgumentException("Attachment file does not exist or is not readable");
+		if ( !strlen($content_type) ) throw new \InvalidArgumentException("Attachment Content Type can't be empty");
 		$req = $this->_socket_startRequestHeaders('PUT',$url);
 		$req .= 'Content-Length: '.filesize($file)."\r\n"
 				.'Content-Type: '.$content_type."\r\n\r\n";
@@ -416,8 +416,8 @@ class Connection {
 	* @throws InvalidArgumentException
 	*/
   public function _socket_storeAsFile($url,$data,$content_type) {
-		if ( !strlen($url) )	throw new InvalidArgumentException("Attachment URL can't be empty");
-		if ( !strlen($content_type) ) throw new InvalidArgumentException("Attachment Content Type can't be empty");
+		if ( !strlen($url) )	throw new \InvalidArgumentException("Attachment URL can't be empty");
+		if ( !strlen($content_type) ) throw new \InvalidArgumentException("Attachment Content Type can't be empty");
 
 		$req = $this->_socket_startRequestHeaders('PUT',$url);
 		$req .= 'Content-Length: '.strlen($data)."\r\n"
@@ -547,6 +547,7 @@ class Connection {
 		curl_setopt($http,CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($http,CURLOPT_FOLLOWLOCATION, true);
 
+		var_dump($url);
 		$response = curl_exec($http);
 		curl_close($http);
 
@@ -566,9 +567,9 @@ class Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function _curl_storeFile ( $url, $file, $content_type ) {
-		if ( !strlen($url) )	throw new InvalidArgumentException("Attachment URL can't be empty");
-		if ( !strlen($file) OR !is_file($file) OR !is_readable($file) )	throw new InvalidArgumentException("Attachment file does not exist or is not readable");
-		if ( !strlen($content_type) ) throw new InvalidArgumentException("Attachment Content Type can't be empty");
+		if ( !strlen($url) )	throw new \InvalidArgumentException("Attachment URL can't be empty");
+		if ( !strlen($file) OR !is_file($file) OR !is_readable($file) )	throw new \InvalidArgumentException("Attachment file does not exist or is not readable");
+		if ( !strlen($content_type) ) throw new \InvalidArgumentException("Attachment Content Type can't be empty");
 		$url = $this->dsn.$url;
 		$http = curl_init($url);
 		$http_headers = array(
@@ -608,8 +609,8 @@ class Connection {
 	* @throws InvalidArgumentException
 	*/
 	public function _curl_storeAsFile($url,$data,$content_type) {
-		if ( !strlen($url) )	throw new InvalidArgumentException("Attachment URL can't be empty");
-		if ( !strlen($content_type) ) throw new InvalidArgumentException("Attachment Content Type can't be empty");
+		if ( !strlen($url) )	throw new \InvalidArgumentException("Attachment URL can't be empty");
+		if ( !strlen($content_type) ) throw new \InvalidArgumentException("Attachment Content Type can't be empty");
 		$url = $this->dsn.$url;
 		$http = curl_init($url);
 		$http_headers = array(
