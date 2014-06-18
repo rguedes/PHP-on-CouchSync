@@ -454,9 +454,7 @@ class Client extends Connection {
 		$this->query_parameters = array();
 
 		$back = $this->_queryAndTest ('GET', $url, array(200),$doc_query);
-		
-		//var_dump(array('results_as_cd'=>$this->results_as_cd,'back'=>$back));
-		if ( !is_object($back) && !empty($path) ) $back = json_decode($back);
+
 		if ( !$this->results_as_cd ) {
 			return $back;
 		}

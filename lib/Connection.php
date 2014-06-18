@@ -152,8 +152,10 @@ class Connection {
 		$response['status_code'] = trim($status_array[1]);
 		$response['status_message'] = trim($status_array[2]);
 		if ( strlen($body) ) {
-			$response['body'] = preg_match('@Content-Type:\s+application/json@i',$headers) ? json_decode($body,$json_as_array) : $body ;
+			// Admin API returns Content-Type: text/plain is_object(json_decode hack.
+			$response['body'] = (preg_match('@Content-Type:\s+application/json@i',$headers) || is_object(json_decode($body))) ? json_decode($body,$json_as_array) : $body ;
 		}
+		var_dump(array('headers'=>$headers, 'body'=>$body, 'res'=>$response));
 		return $response;
 	}
 

@@ -256,6 +256,7 @@ class Admin {
 	public function addRoleToUser ($login,$role) {
 		if ( is_string($login) ) {
 			$user = $this->getUser($login);
+			var_dump(array('user'=>$user));
 			if ( !isset($user->admin_roles) ) $user->admin_roles = array();
 		} elseif ( !property_exists($user,"_id") || !property_exists($user,"admin_roles") ) {
 			throw new \InvalidArgumentException("user parameter should be the login or a user document");
