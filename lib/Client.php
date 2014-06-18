@@ -155,7 +155,7 @@ class Client extends Connection {
 	 */
 	protected function _queryAndTest ( $method, $url, $allowed_status_codes, $parameters = array(),$data = NULL, $content_type = NULL ) {
 		$raw = $this->query($method,$url,$parameters,$data,$content_type);
-		/*
+		
 		var_dump(array(
 			'method'=>$method,
 			'url'=>$url,
@@ -164,7 +164,7 @@ class Client extends Connection {
 			'content_type'=>$content_type,
 			'raw'=>$raw
 		));
-		*/
+		
 		$response = $this->parseRawResponse($raw, $this->results_as_array);
 		$this->results_as_array = false;
 		if ( in_array($response['status_code'], $allowed_status_codes) ) {
