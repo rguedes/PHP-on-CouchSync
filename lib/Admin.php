@@ -111,7 +111,7 @@ class Admin {
 	* @return stdClass Session response
 	* @throws InvalidArgumentException
 	*/
-	public function createSession ($login,$ttl) {
+	public function createSession ($login,$ttl=1200) {
 		if ( strlen($login) < 1 ) {
 			throw new \InvalidArgumentException("Login can't be empty");
 		}
@@ -132,7 +132,7 @@ class Admin {
 	* @return stdClass CouchDB user creation response (the same as a document storage response)
 	* @throws InvalidArgumentException
 	*/
-	public function createUser ($login, $password, $roles = array() ) {
+	public function createUser ($login, $password, $roles = array(), $channels = array() ) {
 		$password = (string)$password;
 		if ( strlen($login) < 1 ) {
 			throw new \InvalidArgumentException("Login can't be empty");
@@ -141,7 +141,7 @@ class Admin {
 			throw new \InvalidArgumentException("Password can't be empty");
 		}
 		$user = new \stdClass();
-		$user->admin_channels = null;
+		$user->admin_channels = $channels;
 		$user->admin_roles = $roles;
 		//$user->all_channels = null;  // This is a derived property and changes to it are ignored.
 		//$user->disabled = null; // This property is usually not included. if the value is set to true, access for the account is disabled.
@@ -217,13 +217,13 @@ class Admin {
 	* @return stdClass CouchDB role creation response (the same as a document storage response)
 	* @throws InvalidArgumentException
 	*/
-	public function createRole ($rolename) {
+	public function createRole ($rolename, $channels = array()) {
 		if ( strlen($rolename) < 1 ) {
 			throw new \InvalidArgumentException("Role name can't be empty");
 		}
 		$role = new \stdClass();
 		$role->name = $rolename;
-
+		$role->admin_channels = $channels;
 		$role->_id = $rolename; // Turns on PUT
 		return $this->client->storeDoc($role, $this->rolesdb);
 	}

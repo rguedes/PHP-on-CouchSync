@@ -21,7 +21,7 @@ Introduction
 
 	echo "\nCreate role\n";
 	try {
-		$res = $adm->createRole("testrole");
+		$res = $adm->createRole("testrole",array('testchannel'));
 		var_dump(array('res'=>$res));
 	} catch ( Exception $e ) {
 		die("unable to create role: ".$e->getMessage());
@@ -105,13 +105,6 @@ Introduction
 		die("unable to delete role: ".$e->getMessage());
 	}
 
-
-	echo "Delete user\n";
-	try {
-		$adm->deleteUser("joe@email.com");
-	} catch ( Exception $e ) {
-		die("unable to delete user: ".$e->getMessage());
-	}
 
         
 Feedback
