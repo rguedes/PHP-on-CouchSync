@@ -13,19 +13,10 @@ Introduction
 	use CouchSync\Client as SyncClient;
 	use CouchSync\Admin as SyncAdmin;
 
-	echo "\nConnection\n";
+	echo "\nAdmin Connection\n";
 	$admclient = new SyncClient("http://localhost:4985/", "sync_gateway" );
-	echo "Admin functions\n";
+	echo "Admin class\n";
 	$adm = new SyncAdmin($admclient);
-
-
-	echo "\nCreate role\n";
-	try {
-		$res = $adm->createRole("testrole",array('testchannel'));
-		var_dump(array('res'=>$res));
-	} catch ( Exception $e ) {
-		die("unable to create role: ".$e->getMessage());
-	}
 
 	echo "\nCreate user\n";
 	try {
@@ -33,6 +24,73 @@ Introduction
 		var_dump(array('res'=>$res));
 	} catch ( Exception $e ) {
 		die("unable to create user: ".$e->getMessage());
+	}
+
+	echo "\nAdd channel to user\n";
+	try {
+		$res = $adm->addChannelToUser('joe@email.com','testchannel');
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to add channel to user: ".$e->getMessage());
+	}
+
+	echo "\nClient Connection\n";
+	$client = new SyncClient("http://joe%40email.com:secret@localhost:4984/", "sync_gateway" );
+
+	echo "\nCreate doc\n";
+	try {
+		$doc = new \stdClass();
+		$doc->_id = 'testdoc';
+		$doc->name = 'testdoc';
+		$doc->field = 'testfield';
+		$doc->channels = array('testchannel');
+		$res = $client->storeDoc($doc);
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to create doc: ".$e->getMessage());
+	}
+
+	echo "\nUpdate doc\n";
+	try {
+		$doc = $client->getDoc('testdoc');
+		var_dump(array('res'=>$res));
+		$doc->field = 'testfield_updated';
+		$res = $client->storeDoc($doc);
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to create doc: ".$e->getMessage());
+	}
+
+	echo "\nDelete doc\n";
+	try {
+		$doc = $client->getDoc('testdoc');
+		$res = $client->deleteDoc($doc);
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to create doc: ".$e->getMessage());
+	}
+
+	/*
+	// Endpoint on Sync API not going to work for this.
+	// https://github.com/couchbase/sync_gateway/issues/336
+	echo "\nQuery view\n";
+	try {
+		$res = $client->getView('test','test');
+		var_dump(array('res'=>$res));
+		
+		$res = $client->getView('sync_gateway','channels');
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to get view: ".$e->getMessage());
+	}
+	*/
+
+	echo "\nCreate role\n";
+	try {
+		$res = $adm->createRole("testrole",array('testchannel'));
+		var_dump(array('res'=>$res));
+	} catch ( Exception $e ) {
+		die("unable to create role: ".$e->getMessage());
 	}
 
 	echo "\nCreate session for user\n";
@@ -117,7 +175,7 @@ Resources
 
 [Admin REST API](http://docs.couchbase.com/sync-gateway/#admin-rest-api)
 
-[Sync REST API](http://developer.couchbase.com/mobile/develop/references/couchbase-lite/rest-api/index.html)
+[Couchbase Lite REST API](http://developer.couchbase.com/mobile/develop/references/couchbase-lite/rest-api/index.html)
 
 [Sync Gateway - Authorizing Users](http://developer.couchbase.com/mobile/develop/guides/sync-gateway/administering-sync-gateway/authorizing-users/index.html)
 
