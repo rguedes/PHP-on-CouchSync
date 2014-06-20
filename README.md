@@ -184,13 +184,18 @@ Introduction
 		die("unable to remove channel from user: ".$e->getMessage());
 	}
 
-	echo "\nGet All users\n";
+	echo "Delete user\n";
 	try {
-		$users = $adm->getAllUsers(true);
-		var_dump(array('joe@email.com'=>$users['joe@email.com']));
-		unset($users);
+		$adm->deleteUser("joe@email.com");
 	} catch ( Exception $e ) {
-		die("unable to get all users: ".$e->getMessage());
+		die("unable to delete user: ".$e->getMessage());
+	}
+
+	echo "Delete role\n";
+	try {
+		$adm->deleteRole("testrole");
+	} catch ( Exception $e ) {
+		die("unable to delete role: ".$e->getMessage());
 	}
 
 
