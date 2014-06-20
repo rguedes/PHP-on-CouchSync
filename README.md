@@ -158,9 +158,8 @@ Introduction
 
 	echo "\nGet _changes feed\n";
 	try {
-		// hmm maybe easier to just hit "feed" instead of "getChanges"
-		//$res = $client->getChanges(); 
 		$res = $client->feed('normal'); // normal|longpoll|continuous|websocket
+		$res = $client->getChanges();
 		var_dump(array('res'=>$res));
 		unset($users);
 	} catch ( Exception $e ) {
@@ -208,7 +207,7 @@ Don't hesitate to submit feedback, bugs and feature requests!
 Resources
 =========
 
-[Admin REST API](http://docs.couchbase.com/sync-gateway/#admin-rest-api)
+[Admin REST API (older docs)](http://docs.couchbase.com/sync-gateway/#admin-rest-api)
 
 [Couchbase Lite REST API](http://developer.couchbase.com/mobile/develop/references/couchbase-lite/rest-api/index.html)
 
