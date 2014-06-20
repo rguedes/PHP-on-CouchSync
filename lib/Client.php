@@ -21,7 +21,7 @@ namespace CouchSync;
 
 
 /**
-* CouchSync client class
+* CouchSync Client class
 *
 * This class implements all required methods to use with a
 * Couch sync gateway server
@@ -177,6 +177,7 @@ class Client extends Connection {
 		if ( !array_key_exists($name,$this->query_defs) ) {
 			throw new \Exception("Method $name does not exist");
 		}
+		var_dump($name);
 		if ( $this->query_defs[$name]['filter'] == 'int' ) {
 			$this->query_parameters[ $this->query_defs[$name]['name'] ] = (int)reset($args);
 		} elseif ( $this->query_defs[$name]['filter'] == 'staticValue' ) {
@@ -246,16 +247,6 @@ class Client extends Connection {
 		if ( $dbname == "_user" )	return true;
 		if (  preg_match ( "@^[a-z][a-z0-9_\$\(\)\+\-/]*$@",$dbname) ) return true;
 		return false;
-	}
-
-
-	/**
-	*list all databases on the CouchDB server
-	*
-	* @return object databases list
-	*/
-	public function listDatabases ( ) {
-		return $this->_queryAndTest ('GET', '/_all_dbs', array(200));
 	}
 
 	/**
@@ -334,7 +325,6 @@ class Client extends Connection {
 		}
 	}
 
-
 	/**
 	* launch a compact operation on the database
 	*
@@ -342,17 +332,7 @@ class Client extends Connection {
 	* @return object CouchDB's compact response ( usually {"ok":true} )
 	*/
 	public function compactDatabase () {
-		return $this->_queryAndTest ( "POST", '/'.urlencode($this->dbname).'/_compact', array(202) );
-	}
-
-	/**
-	* launch a cleanup operation on database views
-	*
-	*
-	* @return object CouchDB's cleanup views response ( usually {"ok":true} )
-	*/
-	public function cleanupDatabaseViews () {
-		return $this->_queryAndTest ( "POST", '/'.urlencode($this->dbname).'/_view_cleanup', array(202) );
+		return $this->_queryAndTest ( "POST", '/'.urlencode($this->dbname).'/_compact', array(200,201,202) );
 	}
 
 	/**
@@ -360,7 +340,7 @@ class Client extends Connection {
 	*
 	*
 	* @link http://books.couchdb.org/relax/reference/change-notifications
-	* @param string $value feed type
+	* @param string $value feed type normal|longpoll|continuous|websocket
 	* @param callable $continuous_callback in case of a continuous feed, the callback to be executed on new event reception
 	* @return Client $this
 	*/
@@ -630,91 +610,6 @@ class Client extends Connection {
 	}
 
 	/**
-	* copy a CouchDB document
-	*
-	* @param string $id id of the document to copy
-	* @param string $new_id id of the new document
-	* @return object CouchDB document storage response
-	* @throws InvalidArgumentException
-	*/
-	public function copyDoc($id,$new_id) {
-		if ( !strlen($id) )
-			throw new \InvalidArgumentException ("Document ID is empty");
-		if ( !strlen($new_id) )
-			throw new \InvalidArgumentException ("New document ID is empty");
-
-		$method = 'COPY';
-		$url  = '/'.urlencode($this->dbname);
-		$url.='/'.urlencode($id);
-		return $this->_queryAndTest ($method, $url, array(200,201,202),array(),$new_id);
-	}
-
-	/**
-	* store a CouchDB attachment
-	*
-	* in this case the attachment content is in a PHP variable
-	*
-	* @param object $doc doc to store the attachment in
-	* @param string $data attachment content
-	* @param string $filename attachment name
-	* @param string $content_type attachment content type
-	* @return object CouchDB attachment storage response
-	* @throws InvalidArgumentException
-	*/
-	public function storeAsAttachment ($doc,$data,$filename,$content_type = 'application/octet-stream') {
-		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
-		$url  = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'/'.urlencode($filename);
-		if ( $doc->_rev ) $url.='?rev='.$doc->_rev;
-		$raw = $this->storeAsFile($url,$data,$content_type);
-		$response = $this->parseRawResponse($raw, $this->results_as_array);
-		$this->results_as_array = false;
-		return $response['body'];
-	}
-
-	/**
-	* store a CouchDB attachment
-	*
-	* in this case the attachment is a file on the harddrive
-	*
-	* @param object $doc doc to store the attachment in
-	* @param string $file file to attach (complete path on the harddrive)
-	* @param string $filename attachment name
-	* @param string $content_type attachment content type
-	* @return object CouchDB attachment storage response
-	* @throws InvalidArgumentException
-	*/
-	public function storeAttachment ($doc,$file,$content_type = 'application/octet-stream',$filename = null) {
-		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
-		if ( !is_file($file) )  throw new \InvalidArgumentException ("File $file does not exist");
-		$url  = '/'.urlencode($this->dbname).'/'.urlencode($doc->_id).'/';
-		$url .= empty($filename) ? urlencode(basename($file)) : urlencode($filename) ;
-		if ( $doc->_rev ) $url.='?rev='.$doc->_rev;
-		$raw = $this->storeFile($url,$file,$content_type);
-		$response = $this->parseRawResponse($raw, $this->results_as_array);
-		return $response['body'];
-	}
-
-	/**
-	* delete a CouchDB attachment from a document
-	*
-	* @param object $doc CouchDB document
-	* @param string $attachment_name name of the attachment to delete
-	* @return object CouchDB attachment removal response
-	* @throws InvalidArgumentException
-	*/
-	public function deleteAttachment ($doc,$attachment_name ) {
-		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
-		if ( !$doc->_id )       throw new \InvalidArgumentException ("Document should have an ID");
-		if ( !strlen($attachment_name) )  throw new \InvalidArgumentException ("Attachment name not set");
-		$url  = '/'.urlencode($this->dbname).
-				'/'.urlencode($doc->_id).
-				'/'.urlencode($attachment_name);
-		return $this->_queryAndTest ('DELETE', $url, array(200,202),array('rev'=>$doc->_rev));
-	}
-
-	/**
 	* remove a document from the database
 	*
 	* @param object $doc document to remove
@@ -788,203 +683,6 @@ class Client extends Connection {
 		return array ( $method, $view_query, $data );
 	}
 
-    /**
-	* request a view from the CouchDB server
-	*
-	* @link http://wiki.apache.org/couchdb/HTTP_view_API
-	* @param string $id design document name (without _design)
-	* @param string $name view name
-	* @return object CouchDB view query response
-	* @throws InvalidArgumentException
-	*/
-	public function getView ( $id, $name ) {
-		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify view id and name");
-		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_view/'.urlencode($name);
-		if ( $this->results_as_cd )		$this->include_docs(true);
-		$results_as_cd = $this->results_as_cd;
-		$this->results_as_cd = false;
-
-		list($method, $view_query, $data) = $this->_prepare_view_query();
-
-		if ( ! $results_as_cd )
-			return $this->_queryAndTest ($method, $url, array(200),$view_query,$data);
-
-		return $this->resultsToDocuments (
-			$this->_queryAndTest ($method, $url, array(200),$view_query,$data)
-		);
-	}
-	/**
-	* returns couchDB view results as Documents objects
-	*
-	* - for string view keys, the object is found on "view key" index
-	*			ex : view returns
-	*			<code>[ "client" : null , "client2" : null ]</code>
-	* 		is translated to :
-	*			array ( 'client' => array(Document) , 'client2' => array(Document) )
-	*
-	* - for array view keys, the object key in the result array is the last key of the view
-	*			ex : view returns
-	*			<code>[ [ "#44556643", "client" ] : null , [ "#65745767566","client2" : null ]</code>
-	* 		is translated to :
-	*			array ( 'client' => array(Document) , 'client2' => array(Document) )
-	*
-	*	@param stdClass couchDb view resultset
-	* @return array array of Document objects
-	*/
-	public function resultsToDocuments ( $results ) {
-		if ( !$results->rows or !is_array($results->rows) )	return FALSE;
-		$back = array();
-		foreach ( $results->rows as $row ) {	// should have $row->key & $row->doc
-			if ( !$row->key or !$row->doc ) 	return false;
-			// create Document
-			$cd = new Document($this);
-			$cd->loadFromObject($row->doc);
-
-			// set key name
-			if ( is_string($row->key) ) $key = $row->key;
-			elseif ( is_array($row->key) ) {
-				if ( !is_array(end($row->key)) && !is_object(end($row->key)) )
-					$key = end($row->key);
-				else
-					continue;
-			}
-
-			// set value in result array
-			if ( isset($back[$key]) ) {
-				if ( is_array($back[$key]) ) 	$back[$key][] = $cd;
-				else													$back[$key]   = array($back[$key],$cd);
-			} else {
-				$back[$key] = $cd;
-			}
-		}
-		return $back;
-	}
-
-	/**
-	* request a list from the CouchDB server
-	*
-	* @link http://wiki.apache.org/couchdb/Formatting_with_Show_and_List
-	* @param string $id design document name (without _design)
-	* @param string $name list name
-	* @param string $view_name view name
-	* @param array $additionnal_parameters some other parameters to send in the query
-	* @return object CouchDB list query response
-	* @throws InvalidArgumentException
-	*/
-	public function getList ( $id, $name, $view_name, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
-		if ( !$view_name )    throw new \InvalidArgumentException("You should specify view name");
-		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_list/'.urlencode($name).'/'.urlencode($view_name);
-		$this->results_as_cd = false;
-		list($method, $view_query, $data) = $this->_prepare_view_query();
-
-		if ( is_array($additionnal_parameters) && count($additionnal_parameters) ) {
-			$view_query = array_merge($additionnal_parameters,$view_query);
-		}
-		return $this->_queryAndTest ($method, $url, array(200),$view_query,$data);
-	}
-
-	/**
-	* request a list from the CouchDB server
-	*
-	* Beginning in CouchDB 0.11, the design doc where the list function is defined can be different from
-	* the design doc where the view function is defined
-	*
-	* So if you got a design doc "_design/example1" with a defined view "view1", and
-	* a design doc "_design/example2" with a defined list "list1", you can query the view view1
-	* and then pass it through the list list1 by using :
-	*
-	* getForeignList("example2","list1","example1","view1");
-	*
-	* @link http://wiki.apache.org/couchdb/Formatting_with_Show_and_List
-	* @param string $id the name of the design document containing the list (without _design)
-	* @param string $name list name
-	* @param string $view_id the name of the design document containing the view (without _design)
-	* @param string $view_name view name
-	* @param array $additionnal_parameters some other parameters to send in the query
-	* @return object CouchDB list query response
-	* @throws InvalidArgumentException
-	*/
-	public function getForeignList ( $id, $name, $view_id, $view_name, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
-		if ( !$view_id OR !$view_name )    throw new \InvalidArgumentException("You should specify view id and view name");
-		$url = '/'.urlencode($this->dbname).
-				'/_design/'.urlencode($id).'/_list/'.urlencode($name).
-				'/'.urlencode($view_id).'/'.urlencode($view_name);
-		$this->results_as_cd = false;
-		list($method, $view_query, $data) = $this->_prepare_view_query();
-
-		if ( is_array($additionnal_parameters) && count($additionnal_parameters) ) {
-			$view_query = array_merge($additionnal_parameters,$view_query);
-		}
-		return $this->_queryAndTest ($method, $url, array(200),$view_query,$data);
-	}
-
-	/**
-	* request a show from the CouchDB server
-	*
-	* @link http://wiki.apache.org/couchdb/Formatting_with_Show_and_List
-	* @param string $id design document name (without _design)
-	* @param string $name show name
-	* @param string $doc_id id of the couchDB document (can be null !)
-	* @param array $additionnal_parameters some other parameters to send in the query
-	* @return object CouchDB list query response
-	* @throws InvalidArgumentException
-	*/
-	public function getShow ( $id, $name, $doc_id = null, $additionnal_parameters = array() ) {
-		if ( !$id OR !$name )    throw new \InvalidArgumentException("You should specify list id and name");
-		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_show/'.urlencode($name);
-		if ( $doc_id )	$url.='/'.urlencode($doc_id);
-		return $this->_queryAndTest ('GET', $url, array(200), $additionnal_parameters);
-	}
-
-    /**
-	* request design doc views informations from the CouchDB server
-	*
-	* @link http://wiki.apache.org/couchdb/HTTP_view_API
-	* @param string $id design document name (without _design)
-	* @return object CouchDB view infos response
-	* @throws InvalidArgumentException
-	*/
-	public function getViewInfos ( $id ) {
-		if ( !$id )    throw new \InvalidArgumentException("You should specify view id");
-		$url = '/'.urlencode($this->dbname).'/_design/'.urlencode($id).'/_info';
-		return $this->_queryAndTest ("GET", $url, array(200));
-	}
-
-
-	/**
-	* launch a compact operation on a database design document
-	*
-	* to compact views defined in _design/thedoc , use compactViews ("thedoc")
-	*
-	* @param string $id design document name (without _design)
-	* @return object CouchDB's compact response ( usually {"ok":true} )
-	*/
-	public function compactViews ( $id ) {
-		$id = preg_replace("@^_design/@","",$id);
-// 		print_r("calling $id");
-		return $this->_queryAndTest ( "POST", '/'.urlencode($this->dbname).'/_compact/'.urlencode($id), array(202) );
-	}
-
-
-	/**
-	* launch a compact operation on all database design documents
-	*
-	* to compact views defined in _design/thedoc , use compactViews ("thedoc")
-	*
-	* @return void
-	*/
-	public function compactAllViews () {
-		$response = $this->startkey('_design/')->endkey('_designa')->getAllDocs();
-		if ( property_exists($response,'rows') && is_array($response->rows) ) {
-			foreach ( $response->rows as $view_row ) {
-				$this->compactViews($view_row->key);
-			}
-		}
-	}
-
-
 	/**
 	* returns all documents contained in the database
 	*
@@ -995,38 +693,6 @@ class Client extends Connection {
 		$url = '/'.urlencode($this->dbname).'/_all_docs';
 		list($method, $view_query, $data) = $this->_prepare_view_query();
 		return $this->_queryAndTest ($method, $url, array(200),$view_query,$data);
-	}
-
-	/**
-	* returns a/some universally unique identifier(s)
-	*
-	*
-	* @param integer $count the number of uuids to return
-	* @return array|false an array of uuids on success, false on failure.
-	* @throws InvalidArgumentException
-	*/
-	public function getUuids($count = 1) {
-		$count=(int)$count;
-		if ( $count < 1 ) throw new \InvalidArgumentException("Uuid count should be greater than 0");
-
-		$url = '/_uuids';
-
-		$back = $this->_queryAndTest ('GET', $url, array(200), array("count"=>$count) );
-		if ( $back && property_exists($back,'uuids') ) {
-			return $back->uuids;
-		}
-		return false;
-	}
-
-	/**
-	* Synchronize database to disc
-	*
-	* @return object CouchDB document storage response
-	*/
-	public function ensureFullCommit() {
-		$method = 'POST';
-		$url = '/' . urlencode($this->dbname) . '/_ensure_full_commit';
-		return $this->_queryAndTest($method, $url, array(200, 201));
 	}
 
 }
