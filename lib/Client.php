@@ -155,7 +155,7 @@ class Client extends Connection {
 	 */
 	protected function _queryAndTest ( $method, $url, $allowed_status_codes, $parameters = array(),$data = NULL, $content_type = NULL ) {
 		$raw = $this->query($method,$url,$parameters,$data,$content_type);
-		
+		/*
 		var_dump(array(
 			'method'=>$method,
 			'url'=>$url,
@@ -164,7 +164,7 @@ class Client extends Connection {
 			'content_type'=>$content_type,
 			'raw'=>$raw
 		));
-		
+		*/
 		$response = $this->parseRawResponse($raw, $this->results_as_array);
 		$this->results_as_array = false;
 		if ( in_array($response['status_code'], $allowed_status_codes) ) {
@@ -177,7 +177,6 @@ class Client extends Connection {
 		if ( !array_key_exists($name,$this->query_defs) ) {
 			throw new \Exception("Method $name does not exist");
 		}
-		var_dump($name);
 		if ( $this->query_defs[$name]['filter'] == 'int' ) {
 			$this->query_parameters[ $this->query_defs[$name]['name'] ] = (int)reset($args);
 		} elseif ( $this->query_defs[$name]['filter'] == 'staticValue' ) {
@@ -440,12 +439,7 @@ class Client extends Connection {
 		}
 		$this->results_as_cd = false;
 		$c = new Document($this);
-		/*
-		var_dump(array(
-			'c'=>$c,
-			'back'=>$back
-		));
-		*/
+
 		return $c->loadFromObject($back);
 	}
 

@@ -155,7 +155,7 @@ class Connection {
 			// Admin API returns Content-Type: text/plain is_object(json_decode hack.
 			$response['body'] = (preg_match('@Content-Type:\s+application/json@i',$headers) || is_object(json_decode($body))) ? json_decode($body,$json_as_array) : $body ;
 		}
-		var_dump(array('headers'=>$headers, 'body'=>$body, 'res'=>$response));
+		//var_dump(array('headers'=>$headers, 'body'=>$body, 'res'=>$response));
 		return $response;
 	}
 
@@ -458,7 +458,7 @@ class Connection {
 		curl_setopt($http,CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($http,CURLOPT_FOLLOWLOCATION, true);
 
-		var_dump($url);
+		//var_dump($url);
 		$response = curl_exec($http);
 		curl_close($http);
 
