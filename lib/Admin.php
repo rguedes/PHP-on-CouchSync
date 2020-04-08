@@ -153,6 +153,32 @@ class Admin {
 		$user->_id = $login; // Turns on PUT
 		return $this->client->storeDoc($user, $this->usersdb);
 	}
+	
+	/**
+	* update an user passowrd
+	*
+	* @param string $login user login
+	* @param string $password user password
+	* @return stdClass CouchDB user update response (the same as a document storage response)
+	* @throws InvalidArgumentException
+	*/
+	public function updateUserPassword ($login, $password) {
+		if ( is_string($login) ) {
+			$user = $this->getUser($login);
+		} elseif ( !property_exists($user,"_id") || !property_exists($user,"admin_channels") ) {
+			throw new \InvalidArgumentException("user parameter should be the login or a user document");
+		}
+		$password = (string)$password;
+		if ( strlen($login) < 1 ) {
+			throw new \InvalidArgumentException("Login can't be empty");
+		}
+		if ( strlen($password) < 1 ) {
+			throw new \InvalidArgumentException("Password can't be empty");
+		}
+		$user->password = $password;
+		$user->_id = $login; // Turns on PUT
+		return $this->client->storeDoc($user, $this->usersdb);
+	}
 
 
 	/**
