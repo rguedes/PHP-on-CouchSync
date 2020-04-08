@@ -254,7 +254,7 @@ class Client extends Connection {
 	* @return object creation infos
 	*/
 	public function createDatabase ( ) {
-		return $this->_queryAndTest ('PUT', '/'.urlencode($this->dbname), array(201));
+		return $this->_queryAndTest ('PUT', '/'.urlencode($this->dbname)."/", array(201));
 	}
 
 	/**
@@ -263,7 +263,7 @@ class Client extends Connection {
 	* @return object creation infos
 	*/
 	public function deleteDatabase ( ) {
-		return $this->_queryAndTest ('DELETE', '/'.urlencode($this->dbname), array(200));
+		return $this->_queryAndTest ('DELETE', '/'.urlencode($this->dbname)."/", array(200));
 	}
 
 	/**
@@ -272,7 +272,7 @@ class Client extends Connection {
 	* @return object database infos
 	*/
 	public function getDatabaseInfos ( ) {
-		return $this->_queryAndTest ('GET', '/'.urlencode($this->dbname), array(200));
+		return $this->_queryAndTest ('GET', '/'.urlencode($this->dbname)."/", array(200));
 	}
 
 	/**
@@ -391,6 +391,27 @@ class Client extends Connection {
 		$opts = $this->query_parameters;
 		$this->query_parameters = array();
 		return $this->_queryAndTest ('GET', $url, array(200,201),$opts);
+	}
+
+
+	/**
+	* set database offline
+	*
+	* @return object CouchDB offline response
+	*/
+	public function offline() {
+		$url = '/'.urlencode($this->dbname).'/_offline';
+		return $this->_queryAndTest ('POST', $url, array(200));
+	}
+
+	/**
+	* set database offline
+	*
+	* @return object CouchDB offline response
+	*/
+	public function online() {
+		$url = '/'.urlencode($this->dbname).'/_online';
+		return $this->_queryAndTest ('POST', $url, array(200));
 	}
 
 
@@ -614,7 +635,7 @@ class Client extends Connection {
 	public function deleteDoc ( $doc, $path = '' ) {
 		if ( !is_object($doc) )	throw new \InvalidArgumentException ("Document should be an object");
 		if ( (empty($doc->_id) OR empty($doc->_rev)) && empty($doc->name) ) throw new \Exception("Document should contain either _id and _rev or name");
-		
+
 		if ( !empty($path) )
 			if ( (empty($doc->_id) OR empty($doc->_rev)) && !empty($doc->name) )
 				$url = '/'.urlencode($this->dbname).'/'.$path.'/'.urlencode($doc->name);
