@@ -1,5 +1,5 @@
 {
-    "name": "mryellow/PHP-on-CouchSync",
+    "name": "rguedes/PHP-on-CouchSync",
     "type": "library",
     "description": "Couchbase Sync Gateway access in PHP",
     "keywords": ["couchbase","couch", "db", "apache", "nosql","sync gateway"],
